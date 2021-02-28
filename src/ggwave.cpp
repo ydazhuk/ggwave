@@ -345,7 +345,7 @@ GGWave::GGWave(const Parameters & parameters) :
         m_txDataLength = m_payloadLength;
 
         int totalLength = m_txDataLength + getECCBytesForLength(m_txDataLength);
-        int totalTxs = (totalLength + minBytesPerTx() - 1)/minBytesPerTx();
+        int totalTxs = 2*(totalLength + minBytesPerTx() - 1)/minBytesPerTx();
 
         m_spectrumHistoryFixed.resize(totalTxs*maxFramesPerTx());
     } else {
@@ -532,7 +532,7 @@ bool GGWave::encode(const CBWaveformOut & cbWaveformOut) {
     int nECCBytesPerTx = getECCBytesForLength(m_txDataLength);
     int sendDataLength = m_txDataLength + m_encodedDataOffset;
     int totalBytes = sendDataLength + nECCBytesPerTx;
-    int totalDataFrames = ((totalBytes + m_txProtocol.bytesPerTx - 1)/m_txProtocol.bytesPerTx)*m_txProtocol.framesPerTx;
+    int totalDataFrames = 2*((totalBytes + m_txProtocol.bytesPerTx - 1)/m_txProtocol.bytesPerTx)*m_txProtocol.framesPerTx;
 
     if (m_isFixedPayloadLength == false) {
         RS::ReedSolomon rsLength(1, m_encodedDataOffset - 1);
@@ -569,13 +569,12 @@ bool GGWave::encode(const CBWaveformOut & cbWaveformOut) {
             std::fill(dataBits.begin(), dataBits.end(), 0);
 
             for (int j = 0; j < m_txProtocol.bytesPerTx; ++j) {
-                {
-                    uint8_t d = m_txDataEncoded[dataOffset + j] & 15;
+                if (dataOffset % 2 == 0) {
+                    uint8_t d = m_txDataEncoded[dataOffset/2 + j] & 15;
                     dataBits[(2*j + 0)*16 + d] = 1;
-                }
-                {
-                    uint8_t d = m_txDataEncoded[dataOffset + j] & 240;
-                    dataBits[(2*j + 1)*16 + (d >> 4)] = 1;
+                } else {
+                    uint8_t d = m_txDataEncoded[dataOffset/2 + j] & 240;
+                    dataBits[(2*j + 0)*16 + (d >> 4)] = 1;
                 }
             }
 
@@ -1201,7 +1200,7 @@ void GGWave::decode_fixed() {
         const int binDelta = 16;
 
         const int totalLength = m_payloadLength + getECCBytesForLength(m_payloadLength);
-        const int totalTxs = (totalLength + rxProtocol.bytesPerTx - 1)/rxProtocol.bytesPerTx;
+        const int totalTxs = 2*((totalLength + rxProtocol.bytesPerTx - 1)/rxProtocol.bytesPerTx);
 
         int historyStartId = m_historyIdFixed - totalTxs*rxProtocol.framesPerTx;
         if (historyStartId < 0) {
@@ -1221,8 +1220,10 @@ void GGWave::decode_fixed() {
         int txDetectedTotal = 0;
         int txNeededTotal = 0;
         for (int k = 0; k < totalTxs; ++k) {
-            for (auto & tone : tones) {
-                std::fill(tone.nMax, tone.nMax + 16, 0);
+            if (k % 2 == 0) {
+                for (auto & tone : tones) {
+                    std::fill(tone.nMax, tone.nMax + 16, 0);
+                }
             }
 
             for (int i = 0; i < rxProtocol.framesPerTx; ++i) {
@@ -1249,7 +1250,7 @@ void GGWave::decode_fixed() {
                         }
 
                         {
-                            const auto & v = m_spectrumHistoryFixed[historyId][binStart + 2*j*binDelta + binDelta + b];
+                            const auto & v = m_spectrumHistoryFixed[historyId][binStart + 2*j*binDelta + b];
 
                             if (f1max <= v) {
                                 f1max = v;
@@ -1258,23 +1259,24 @@ void GGWave::decode_fixed() {
                         }
                     }
 
-                    tones[2*j + 0].nMax[f0bin]++;
-                    tones[2*j + 1].nMax[f1bin]++;
+                    if (k%2 == 0) tones[2*j + 0].nMax[f0bin]++;
+                    if (k%2 == 1) tones[2*j + 1].nMax[f1bin]++;
                 }
             }
+            if (k % 2 == 0) continue;
 
             int txDetected = 0;
             int txNeeded = 0;
             for (int j = 0; j < rxProtocol.bytesPerTx; ++j) {
-                if (k*rxProtocol.bytesPerTx + j >= totalLength) break;
+                if ((k/2)*rxProtocol.bytesPerTx + j >= totalLength) break;
                 txNeeded += 2;
                 for (int b = 0; b < 16; ++b) {
                     if (tones[2*j + 0].nMax[b] > rxProtocol.framesPerTx/2) {
-                        detectedBins[2*(k*rxProtocol.bytesPerTx + j) + 0] = b;
+                        detectedBins[2*((k/2)*rxProtocol.bytesPerTx + j) + 0] = b;
                         txDetected++;
                     }
                     if (tones[2*j + 1].nMax[b] > rxProtocol.framesPerTx/2) {
-                        detectedBins[2*(k*rxProtocol.bytesPerTx + j) + 1] = b;
+                        detectedBins[2*((k/2)*rxProtocol.bytesPerTx + j) + 1] = b;
                         txDetected++;
                     }
                 }
