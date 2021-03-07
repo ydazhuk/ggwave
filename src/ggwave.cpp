@@ -546,10 +546,14 @@ bool GGWave::encode(const CBWaveformOut & cbWaveformOut) {
     float factor = kBaseSampleRate/m_sampleRateOut;
     uint32_t offset = 0;
 
+    m_outputTones.clear();
+
     while (m_hasNewTxData) {
         std::fill(m_outputBlock.begin(), m_outputBlock.end(), 0.0f);
 
         std::uint16_t nFreq = 0;
+        m_outputTones.push_back({});
+
         if (frameId < m_nMarkerFrames) {
             nFreq = m_nBitsInMarker;
 
@@ -582,10 +586,16 @@ bool GGWave::encode(const CBWaveformOut & cbWaveformOut) {
                 if (dataBits[k] == 0) continue;
 
                 ++nFreq;
+                m_outputTones.back().push_back({});
+                m_outputTones.back().back().duration_ms = (1000.0*m_samplesPerFrame)/kBaseSampleRate;
                 if (k%2) {
                     ::addAmplitudeSmooth(bit0Amplitude[k/2], m_outputBlock, m_sendVolume, 0, m_samplesPerFrame, cycleModMain, m_txProtocol.framesPerTx);
+                    m_outputTones.back().back().freq_hz = bitFreq(m_txProtocol, k/2) + m_hzPerSample;
+                    printf("frameId = %d, freq = %g\n", frameId, m_outputTones.back().back().freq_hz);
                 } else {
                     ::addAmplitudeSmooth(bit1Amplitude[k/2], m_outputBlock, m_sendVolume, 0, m_samplesPerFrame, cycleModMain, m_txProtocol.framesPerTx);
+                    m_outputTones.back().back().freq_hz = bitFreq(m_txProtocol, k/2);
+                    printf("frameId = %d, freq = %g\n", frameId, m_outputTones.back().back().freq_hz);
                 }
             }
         } else if (frameId < m_nMarkerFrames + totalDataFrames + m_nMarkerFrames) {

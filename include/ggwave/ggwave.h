@@ -267,13 +267,18 @@ public:
             { GGWAVE_TX_PROTOCOL_ULTRASOUND_NORMAL,     { "[U] Normal",   320, 9, 3, } },
             { GGWAVE_TX_PROTOCOL_ULTRASOUND_FAST,       { "[U] Fast",     320, 6, 3, } },
             { GGWAVE_TX_PROTOCOL_ULTRASOUND_FASTEST,    { "[U] Fastest",  320, 3, 3, } },
-            { GGWAVE_TX_PROTOCOL_DT_NORMAL,             { "[DT] Normal",  24,  9, 1, } },
-            { GGWAVE_TX_PROTOCOL_DT_FAST,               { "[DT] Fast",    24,  6, 1, } },
-            { GGWAVE_TX_PROTOCOL_DT_FASTEST,            { "[DT] Fastest", 24,  3, 1, } },
+            { GGWAVE_TX_PROTOCOL_DT_NORMAL,             { "[DT] Normal",  64,  9, 1, } },
+            { GGWAVE_TX_PROTOCOL_DT_FAST,               { "[DT] Fast",    64,  6, 1, } },
+            { GGWAVE_TX_PROTOCOL_DT_FASTEST,            { "[DT] Fastest", 64,  3, 1, } },
         };
 
         return kTxProtocols;
     }
+
+    struct ToneData {
+        double freq_hz;
+        double duration_ms;
+    };
 
     using AmplitudeData    = std::vector<float>;
     using AmplitudeDataI16 = std::vector<int16_t>;
@@ -354,6 +359,8 @@ public:
     static const TxProtocol & getDefaultTxProtocol() { return getTxProtocols().at(getDefaultTxProtocolId()); }
     static const TxProtocol & getTxProtocol(int id)  { return getTxProtocols().at(TxProtocolId(id)); }
     static const TxProtocol & getTxProtocol(TxProtocolId id) { return getTxProtocols().at(id); }
+
+    const std::vector<std::vector<ToneData>> & getOutputTones() { return m_outputTones; }
 
     bool takeTxAmplitudeI16(AmplitudeDataI16 & dst);
 
@@ -473,6 +480,8 @@ private:
     TxRxData m_outputBlockTmp;
     AmplitudeDataI16 m_outputBlockI16;
     AmplitudeDataI16 m_txAmplitudeDataI16;
+
+    std::vector<std::vector<ToneData>> m_outputTones;
 
     // Impl
     // todo : move all members inside Impl
